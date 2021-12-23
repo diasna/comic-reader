@@ -53,17 +53,22 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	libraryParam := r.FormValue("library")
+	keywordsParam := r.FormValue("keywords")
 	data := struct {
 		Previous     int
 		Next         int
 		Page         int
+		Library      string
+		Keywords     string
 		NumberOfPage int
 		Data         []Comic
 	}{
 		Previous: page - 1,
 		Next:     page + 1,
 		Page:     page,
-		Data:     searchInDb(page, libraryParam),
+		Library:  libraryParam,
+		Keywords: keywordsParam,
+		Data:     searchInDb(page, libraryParam, keywordsParam),
 	}
 	templates.ExecuteTemplate(w, "index.html", data)
 }
@@ -86,10 +91,10 @@ func updateLibrary(id string, library bool) {
 		log.Fatal(err)
 	}
 }
-func searchInDb(page int, library string) []Comic {
+func searchInDb(page int, library string, keywords string) []Comic {
 	limit := 12
 	offset := page * limit
-	row, err := sqliteDatabase.Query("SELECT id, title, artist, book, CAST(timestamp AS INTEGER), library FROM comic WHERE (ifnull(?, '') = '' OR library = 1) ORDER BY timestamp DESC LIMIT ?, ?", library, offset, limit)
+	row, err := sqliteDatabase.Query("SELECT id, title, artist, book, CAST(timestamp AS INTEGER), library FROM comic WHERE (ifnull(?, '') = '' OR library = 1) AND ((ifnull(?, '') = '' OR artist LIKE ?) OR (ifnull(?, '') = '' OR title LIKE ?)) ORDER BY timestamp DESC LIMIT ?, ?", library, keywords, "%"+keywords+"%", keywords, "%"+keywords+"%", offset, limit)
 	var comics []Comic
 	if err != nil {
 		log.Fatal(err)

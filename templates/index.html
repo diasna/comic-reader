@@ -31,14 +31,14 @@
                 <div class="navbar-collapse collapse show">
                     <ul class="navbar-nav me-auto mb-2 mb-sm-0">
                         <li class="nav-item">
-                            <a class="nav-link active" aria-current="page" href="/">Home</a>
+                            <a class="nav-link {{if not .Library}}active{{end}}" aria-current="page" href="/">Home</a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="/?library=1">Library</a>
+                            <a class="nav-link {{if .Library}}active{{end}}" href="/?library=1">Library</a>
                         </li>
                     </ul>
-                    <form>
-                        <input class="form-control" type="text" placeholder="Search" aria-label="Search">
+                    <form method="get">
+                        <input name="keywords" class="form-control" type="text" placeholder="Search" aria-label="Search" value="{{.Keywords}}">
                     </form>
                 </div>
             </div>
@@ -75,9 +75,9 @@
                 </div>
                 <nav class="mt-5 d-flex justify-content-center">
                     <ul class="pagination pagination-lg">
-                        <li class="page-item"><a class="page-link" href="/?page={{.Previous}}">Prev</a></li>
+                        <li class="page-item"><a class="page-link" href="/?page={{.Previous}}{{if .Library}}&library=1{{end}}{{if .Keywords}}&keywords={{.Keywords}}{{end}}">Prev</a></li>
                         <li class="page-item disabled"><a class="page-link" href="#">{{.Page}}</a></li>
-                        <li class="page-item"><a class="page-link" href="/?page={{.Next}}">Next</a></li>
+                        <li class="page-item"><a class="page-link" href="/?page={{.Next}}{{if .Library}}&library=1{{end}}{{if .Keywords}}&keywords={{.Keywords}}{{end}}">Next</a></li>
                     </ul>
                 </nav>
             </div>

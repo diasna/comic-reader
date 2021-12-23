@@ -38,14 +38,30 @@
 <body class="bg-dark">
     <div class="py-5">
         <div class="container">
-            {{range .FileList}}
-            <img class="img-fluid page mb-2" src="/reader/{{$.ID}}/{{.}}" />
-            {{end}}
+
         </div>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"
         integrity="sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p"
         crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"
+        integrity="sha256-/xUj+3OJU5yExlq6GSYGSHk7tPXikynS7ogEvDej/m4=" crossorigin="anonymous"></script>
+    <script>
+        var images = [{{ range .FileList }}'/reader/{{$.ID}}/{{.}}', {{ end }}], i = 0;
+        function loadImageArrayAsync() {
+            var image = new Image();
+            image.onload = function () {
+                document.body.appendChild(image);
+                if (i++ < images.length - 1) loadImageArrayAsync();
+            };
+            image.onerror = function () {
+                if (i++ < images.length - 1) loadImageArrayAsync();
+            }
+            image.src = images[i];
+            $("img").addClass("img-fluid page mb-2");
+        }
+        loadImageArrayAsync();
+    </script>
 </body>
 
 </html>
