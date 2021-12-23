@@ -16,6 +16,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strconv"
+	"time"
 
 	"github.com/chai2010/webp"
 	"github.com/gorilla/mux"
@@ -43,7 +44,7 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 	pageParam := r.FormValue("page")
 	var page int
 	if len(pageParam) < 1 {
-		page = 1
+		page = 0
 	} else {
 		var err error
 		page, err = strconv.Atoi(pageParam)
@@ -88,7 +89,7 @@ func updateLibrary(id string, library bool) {
 func searchInDb(page int, library string) []Comic {
 	limit := 12
 	offset := page * limit
-	row, err := sqliteDatabase.Query("SELECT id, title, artist, book, CAST(timestamp AS INTEGER), library FROM comic WHERE (? == '' OR library = 1) ORDER BY timestamp DESC LIMIT ?, ?", library, offset, limit)
+	row, err := sqliteDatabase.Query("SELECT id, title, artist, book, CAST(timestamp AS INTEGER), library FROM comic WHERE (ifnull(?, '') = '' OR library = 1) ORDER BY timestamp DESC LIMIT ?, ?", library, offset, limit)
 	var comics []Comic
 	if err != nil {
 		log.Fatal(err)
@@ -214,21 +215,23 @@ func reloadComicDb(path string) {
 		if !f.IsDir() {
 			r, err := regexp.MatchString(".zip", f.Name())
 			if err == nil && r {
-				data := Comic{
-					Title:     reTitle.FindStringSubmatch(f.Name())[1],
-					Artist:    reArtist.FindStringSubmatch(f.Name())[1],
-					Book:      reBook.FindStringSubmatch(f.Name())[1],
-					Timestamp: f.ModTime().UnixMilli(),
-				}
 				var buf bytes.Buffer
 				var image, err = extractCover(path)
-				if err == nil {
-					if err = webp.Encode(&buf, image, &webp.Options{Lossless: false}); err != nil {
+
+				if err == nil && image != nil {
+					data := Comic{
+						Title:     reTitle.FindStringSubmatch(f.Name())[1],
+						Artist:    reArtist.FindStringSubmatch(f.Name())[1],
+						Book:      reBook.FindStringSubmatch(f.Name())[1],
+						Timestamp: image.ModTime.UnixMilli(),
+					}
+					if err = webp.Encode(&buf, image.Image, &webp.Options{Lossless: false}); err != nil {
 						log.Println(err)
 					}
 					insertComic(data, path, buf.Bytes())
+					log.Printf("Inserting %s", data.Title)
 				} else {
-					log.Printf("Skipping %s", data.Title)
+					log.Printf("Skipping %s", path)
 				}
 			}
 		}
@@ -236,7 +239,12 @@ func reloadComicDb(path string) {
 	})
 }
 
-func extractCover(localPath string) (image.Image, error) {
+type Cover struct {
+	Image   image.Image
+	ModTime time.Time
+}
+
+func extractCover(localPath string) (*Cover, error) {
 	r, err := zip.OpenReader(localPath)
 	if err != nil {
 		return nil, errors.New("error opening zip file " + localPath)
@@ -258,25 +266,29 @@ func extractCover(localPath string) (image.Image, error) {
 			if err != nil {
 				return nil, errors.New("error decoding image " + localPath)
 			}
-			return img, nil
+			imagewrapper := &Cover{
+				Image:   img,
+				ModTime: f.Modified,
+			}
+			return imagewrapper, nil
 		}
 	}
 	return nil, errors.New("file not found")
 }
 
 func resetDb() {
-	os.Remove("comic.db")
-	log.Println("Creating comic.db...")
-	file, err := os.Create("comic.db")
+	sqliteDatabase, err := sql.Open("sqlite3", "./comic.db")
 	if err != nil {
 		log.Fatal(err.Error())
 	}
-	file.Close()
-	log.Println("comic.db created")
-	sqliteDatabase, err = sql.Open("sqlite3", "./comic.db")
+	dropComicTableSQL := `DROP TABLE comic;`
+	log.Println("dropping comic table...")
+	droptStatement, err := sqliteDatabase.Prepare(dropComicTableSQL)
 	if err != nil {
 		log.Fatal(err.Error())
 	}
+	droptStatement.Exec()
+	log.Println("comic table dropped")
 	createComicTableSQL := `CREATE TABLE comic (
 		"id" TEXT NOT NULL PRIMARY KEY,		
 		"title" TEXT,
@@ -289,16 +301,15 @@ func resetDb() {
 	  );`
 
 	log.Println("Create comic table...")
-	statement, err := sqliteDatabase.Prepare(createComicTableSQL)
+	createStatement, err := sqliteDatabase.Prepare(createComicTableSQL)
 	if err != nil {
 		log.Fatal(err.Error())
 	}
-	statement.Exec()
+	createStatement.Exec()
 	log.Println("comic table created")
 }
 
 func insertComic(comic Comic, localPath string, cover []byte) {
-	log.Printf("Inserting %s", comic.Title)
 	insertComicSQL := `INSERT INTO comic(id, title, artist, book, timestamp, local_path, cover) VALUES (?, ?, ?, ?, ?, ?, ?)`
 	statement, err := sqliteDatabase.Prepare(insertComicSQL)
 	if err != nil {
