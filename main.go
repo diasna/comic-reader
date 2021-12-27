@@ -220,21 +220,38 @@ func reloadComicDb(path string) {
 		if !f.IsDir() {
 			r, err := regexp.MatchString(".zip", f.Name())
 			if err == nil && r {
+				log.Printf("Processing %s", f.Name())
 				var buf bytes.Buffer
 				var image, err = extractCover(path)
-
+				var title string
+				var artist string
+				var book string
+				if len(reTitle.FindStringSubmatch(f.Name())) < 2 {
+					title = f.Name()
+				} else {
+					title = reTitle.FindStringSubmatch(f.Name())[1]
+				}
+				if len(reArtist.FindStringSubmatch(f.Name())) < 2 {
+					artist = "-"
+				} else {
+					artist = reArtist.FindStringSubmatch(f.Name())[1]
+				}
+				if len(reBook.FindStringSubmatch(f.Name())) < 2 {
+					book = "-"
+				} else {
+					book = reBook.FindStringSubmatch(f.Name())[1]
+				}
 				if err == nil && image != nil {
 					data := Comic{
-						Title:     reTitle.FindStringSubmatch(f.Name())[1],
-						Artist:    reArtist.FindStringSubmatch(f.Name())[1],
-						Book:      reBook.FindStringSubmatch(f.Name())[1],
+						Title:     title,
+						Artist:    artist,
+						Book:      book,
 						Timestamp: image.ModTime.UnixMilli(),
 					}
 					if err = webp.Encode(&buf, image.Image, &webp.Options{Lossless: false}); err != nil {
 						log.Println(err)
 					}
 					insertComic(data, path, buf.Bytes())
-					log.Printf("Inserting %s", data.Title)
 				} else {
 					log.Printf("Skipping %s", path)
 				}
@@ -242,6 +259,7 @@ func reloadComicDb(path string) {
 		}
 		return nil
 	})
+	log.Printf("Done importing %s", path)
 }
 
 type Cover struct {
