@@ -52,14 +52,44 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 			log.Println(err)
 		}
 	}
+	limitParam := r.FormValue("limit")
+	var limit int
+	if len(limitParam) < 1 {
+		limit = 12
+	} else {
+		var err error
+		limit, err = strconv.Atoi(limitParam)
+		if err != nil {
+			log.Println(err)
+		}
+	}
 	libraryParam := r.FormValue("library")
 	keywordsParam := r.FormValue("keywords")
+
+	sortByParam := r.FormValue("sort-by")
+	var sortBy string
+	if len(sortByParam) < 1 {
+		sortBy = "timestamp"
+	} else {
+		sortBy = sortByParam
+	}
+
+	sortTypeParam := r.FormValue("sort-type")
+	var sortType string
+	if len(sortByParam) < 1 {
+		sortType = "DESC"
+	} else {
+		sortType = sortTypeParam
+	}
+
 	data := struct {
 		Previous     int
 		Next         int
 		Page         int
 		Library      string
 		Keywords     string
+		SortBy       string
+		SortType     string
 		NumberOfPage int
 		Data         []Comic
 	}{
@@ -68,7 +98,9 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 		Page:     page,
 		Library:  libraryParam,
 		Keywords: keywordsParam,
-		Data:     searchInDb(page, libraryParam, keywordsParam),
+		SortBy:   sortBy,
+		SortType: sortType,
+		Data:     searchInDb(page, limit, libraryParam, keywordsParam, sortBy+" "+sortType),
 	}
 	templates.ExecuteTemplate(w, "index.html", data)
 }
@@ -91,10 +123,14 @@ func updateLibrary(id string, library bool) {
 		log.Println(err)
 	}
 }
-func searchInDb(page int, library string, keywords string) []Comic {
-	limit := 12
+func searchInDb(page int, limit int, library string, keywords string, sort string) []Comic {
 	offset := page * limit
-	row, err := sqliteDatabase.Query("SELECT id, title, artist, book, CAST(timestamp AS INTEGER), library FROM comic WHERE (ifnull(?, '') = '' OR library = 1) AND ((ifnull(?, '') = '' OR artist LIKE ?) OR (ifnull(?, '') = '' OR title LIKE ?) OR (ifnull(?, '') = '' OR book LIKE ?)) ORDER BY timestamp DESC LIMIT ?, ?", library, keywords, "%"+keywords+"%", keywords, "%"+keywords+"%", keywords, "%"+keywords+"%", offset, limit)
+	valid := regexp.MustCompile("^[A-Za-z0-9_ ]+$")
+	if !valid.MatchString(sort) {
+		log.Println("Invalid input")
+		return []Comic{}
+	}
+	row, err := sqliteDatabase.Query("SELECT id, title, artist, book, CAST(timestamp AS INTEGER), library FROM comic WHERE (ifnull(?, '') = '' OR library = 1) AND ((ifnull(?, '') = '' OR artist LIKE ?) OR (ifnull(?, '') = '' OR title LIKE ?) OR (ifnull(?, '') = '' OR book LIKE ?)) ORDER BY "+sort+" LIMIT ?, ?", library, keywords, "%"+keywords+"%", keywords, "%"+keywords+"%", keywords, "%"+keywords+"%", offset, limit)
 	var comics []Comic
 	if err != nil {
 		log.Println(err)
@@ -253,7 +289,7 @@ func reloadComicDb(path string) {
 					}
 					insertComic(data, path, buf.Bytes())
 				} else {
-					log.Printf("Skipping %s", path)
+					log.Printf("Skipping %s: %s", path, err.Error())
 				}
 			}
 		}
@@ -319,6 +355,7 @@ func resetDb() {
 		"artist" TEXT,
 		"book" TEXT,
 		"timestamp" TIMESTAMP,
+		"import_timestamp" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 		"local_path" TEXT,
 		"cover" BLOB,
 		"library" BOOLEAN 
@@ -334,7 +371,7 @@ func resetDb() {
 }
 
 func insertComic(comic Comic, localPath string, cover []byte) {
-	insertComicSQL := `INSERT OR IGNORE INTO comic(id, title, artist, book, timestamp, local_path, cover) VALUES (?, ?, ?, ?, ?, ?, ?)`
+	insertComicSQL := `INSERT OR IGNORE INTO comic(id, title, artist, book, timestamp, import_timestamp, local_path, cover) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?, ?)`
 	statement, err := sqliteDatabase.Prepare(insertComicSQL)
 	if err != nil {
 		log.Println(err.Error())

@@ -38,13 +38,28 @@
                         </li>
                     </ul>
                     <form method="get">
-                        <input name="keywords" class="form-control" type="text" placeholder="Search" aria-label="Search" value="{{.Keywords}}">
+                        <input name="keywords" class="form-control" type="text" placeholder="Search" aria-label="Search"
+                            value="{{.Keywords}}">
                     </form>
                 </div>
             </div>
         </nav>
+
         <div class="album py-5">
             <div class="container">
+                <div class="row mb-3 justify-content-end">
+                    <div class="col-3">
+                        <div class="input-group">
+                            <select class="form-select" id="sort">
+                                <option value="import_timestamp" {{if eq .SortBy "import_timestamp" }}selected{{end}}>Recently Added</option>
+                                <option value="timestamp" {{if eq .SortBy "timestamp" }}selected{{end}}>Released Date</option>
+                                <option value="title" {{if eq .SortBy "title" }}selected{{end}}>Title</option>
+                            </select>
+                            {{if eq .SortType "DESC" }}<button id="sort-asc" class="btn btn-outline-secondary" type="button"><span class="bi bi-caret-down" aria-hidden="true"></span></button>{{end}}
+                            {{if eq .SortType "ASC" }}<button id="sort-desc" class="btn btn-outline-secondary" type="button"><span class="bi bi-caret-up" aria-hidden="true"></span></button>{{end}}
+                        </div>
+                    </div>
+                </div>
                 <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-3">
                     {{range .Data}}
                     <div class="col">
@@ -56,8 +71,10 @@
                                         class="text-decoration-none text-dark">{{.Title}}</a>
                                 </h4>
                                 <div class="d-flex justify-content-between">
-                                    <p><a href='/?keywords={{.Artist}}' class="text-primary text-decoration-none">{{.Artist}}</a> - <a
-                                            href='/?keywords={{.Book}}' class="text-primary text-decoration-none">{{.Book}}</a></p>
+                                    <p><a href='/?keywords={{.Artist}}'
+                                            class="text-primary text-decoration-none">{{.Artist}}</a> - <a
+                                            href='/?keywords={{.Book}}'
+                                            class="text-primary text-decoration-none">{{.Book}}</a></p>
                                 </div>
                             </div>
                             <div class="card-footer d-flex justify-content-between">
@@ -75,9 +92,13 @@
                 </div>
                 <nav class="mt-5 d-flex justify-content-center">
                     <ul class="pagination pagination-lg">
-                        <li class="page-item"><a class="page-link" href="/?page={{.Previous}}{{if .Library}}&library=1{{end}}{{if .Keywords}}&keywords={{.Keywords}}{{end}}">Prev</a></li>
+                        <li class="page-item"><a class="page-link"
+                                href="/?page={{.Previous}}{{if .Library}}&library=1{{end}}{{if .Keywords}}&keywords={{.Keywords}}{{end}}{{if .SortBy}}&sort-by={{.SortBy}}{{end}}{{if .SortType}}&sort-type={{.SortType}}{{end}}">Prev</a>
+                        </li>
                         <li class="page-item disabled"><a class="page-link" href="#">{{.Page}}</a></li>
-                        <li class="page-item"><a class="page-link" href="/?page={{.Next}}{{if .Library}}&library=1{{end}}{{if .Keywords}}&keywords={{.Keywords}}{{end}}">Next</a></li>
+                        <li class="page-item"><a class="page-link"
+                                href="/?page={{.Next}}{{if .Library}}&library=1{{end}}{{if .Keywords}}&keywords={{.Keywords}}{{end}}{{if .SortBy}}&sort-by={{.SortBy}}{{end}}{{if .SortType}}&sort-type={{.SortType}}{{end}}">Next</a>
+                        </li>
                     </ul>
                 </nav>
             </div>
@@ -113,6 +134,16 @@
                         }
                     });
                 }
+            });
+
+            $("#sort").on('change', function() {
+                window.location.href = "/?sort-by="+this.value+"&sort-type={{.SortType}}"
+            });
+            $("#sort-asc").click(function(){
+                window.location.href = "/?sort-by={{.SortBy}}&sort-type=ASC"
+            });
+            $("#sort-desc").click(function(){
+                window.location.href = "/?sort-by={{.SortBy}}&sort-type=DESC"
             });
         });
 
