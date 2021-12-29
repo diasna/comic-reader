@@ -69,7 +69,7 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 	sortByParam := r.FormValue("sort-by")
 	var sortBy string
 	if len(sortByParam) < 1 {
-		sortBy = "timestamp"
+		sortBy = "import_timestamp"
 	} else {
 		sortBy = sortByParam
 	}
