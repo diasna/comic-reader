@@ -118,7 +118,13 @@ func libraryHandler(w http.ResponseWriter, r *http.Request) {
 
 }
 func updateLibrary(id string, library bool) {
-	_, err := sqliteDatabase.Exec("UPDATE comic SET library =? WHERE id =?", library, id)
+	var update string
+	if library {
+		update = "INSERT OR IGNORE INTO library(comic_id) VALUES (?)"
+	} else {
+		update = "DELETE FROM library WHERE comic_id = ?"
+	}
+	_, err := sqliteDatabase.Exec(update, id)
 	if err != nil {
 		log.Println(err)
 	}
@@ -130,7 +136,7 @@ func searchInDb(page int, limit int, library string, keywords string, sort strin
 		log.Println("Invalid input")
 		return []Comic{}
 	}
-	row, err := sqliteDatabase.Query("SELECT id, title, artist, book, CAST(timestamp AS INTEGER), library FROM comic WHERE (ifnull(?, '') = '' OR library = 1) AND ((ifnull(?, '') = '' OR artist LIKE ?) OR (ifnull(?, '') = '' OR title LIKE ?) OR (ifnull(?, '') = '' OR book LIKE ?)) ORDER BY "+sort+" LIMIT ?, ?", library, keywords, "%"+keywords+"%", keywords, "%"+keywords+"%", keywords, "%"+keywords+"%", offset, limit)
+	row, err := sqliteDatabase.Query("SELECT c.id, c.title, c.artist, c.book, CAST(c.timestamp AS INTEGER), IIF(l.id, true, false) as library FROM comic c left join library l on c.id = l.comic_id WHERE (ifnull(?, '') = '' OR library = true) AND ((ifnull(?, '') = '' OR c.artist LIKE ?) OR (ifnull(?, '') = '' OR c.title LIKE ?) OR (ifnull(?, '') = '' OR c.book LIKE ?)) ORDER BY "+sort+" LIMIT ?, ?", library, keywords, "%"+keywords+"%", keywords, "%"+keywords+"%", keywords, "%"+keywords+"%", offset, limit)
 	var comics []Comic
 	if err != nil {
 		log.Println(err)
@@ -335,19 +341,10 @@ func extractCover(localPath string) (*Cover, error) {
 	return nil, errors.New("file not found")
 }
 
-func resetDb() {
+func initDb() {
 	sqliteDatabase, err := sql.Open("sqlite3", "./comic.db")
 	if err != nil {
 		log.Println(err.Error())
-	}
-	dropComicTableSQL := `DROP TABLE comic;`
-	log.Println("dropping comic table...")
-	droptStatement, err := sqliteDatabase.Prepare(dropComicTableSQL)
-	if err != nil {
-		log.Println(err.Error())
-	} else {
-		droptStatement.Exec()
-		log.Println("comic table dropped")
 	}
 	createComicTableSQL := `CREATE TABLE comic (
 		"id" TEXT NOT NULL PRIMARY KEY,		
@@ -357,17 +354,24 @@ func resetDb() {
 		"timestamp" TIMESTAMP,
 		"import_timestamp" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 		"local_path" TEXT,
-		"cover" BLOB,
-		"library" BOOLEAN 
+		"cover" BLOB
 	  );`
-
-	log.Println("Create comic table...")
 	createStatement, err := sqliteDatabase.Prepare(createComicTableSQL)
 	if err != nil {
 		log.Println(err.Error())
 	}
 	createStatement.Exec()
 	log.Println("comic table created")
+	createLibraryTableSQL := `CREATE TABLE library (
+		"id" INTEGER PRIMARY KEY AUTOINCREMENT,
+		"comic_id" TEXT NOT NULL 
+	  );`
+	createStatement, err = sqliteDatabase.Prepare(createLibraryTableSQL)
+	if err != nil {
+		log.Println(err.Error())
+	}
+	createStatement.Exec()
+	log.Println("library table created")
 }
 
 func insertComic(comic Comic, localPath string, cover []byte) {
@@ -411,8 +415,8 @@ func main() {
 	if len(os.Args) < 2 {
 		startWebServer()
 	} else {
-		if os.Args[1] == "reset" {
-			resetDb()
+		if os.Args[1] == "init" {
+			initDb()
 		} else if os.Args[1] == "import" {
 			path := os.Args[2]
 			log.Printf("Importing %s", path)
