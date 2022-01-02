@@ -136,7 +136,7 @@ func searchInDb(page int, limit int, library string, keywords string, sort strin
 		log.Println("Invalid input")
 		return []Comic{}
 	}
-	row, err := sqliteDatabase.Query("SELECT c.id, c.title, c.artist, c.book, CAST(c.timestamp AS INTEGER), IIF(l.id, true, false) as library FROM comic c left join library l on c.id = l.comic_id WHERE (ifnull(?, '') = '' OR library = true) AND ((ifnull(?, '') = '' OR c.artist LIKE ?) OR (ifnull(?, '') = '' OR c.title LIKE ?) OR (ifnull(?, '') = '' OR c.book LIKE ?)) ORDER BY "+sort+" LIMIT ?, ?", library, keywords, "%"+keywords+"%", keywords, "%"+keywords+"%", keywords, "%"+keywords+"%", offset, limit)
+	row, err := sqliteDatabase.Query("SELECT c.id, c.title, c.artist, c.book, CAST(c.timestamp AS INTEGER), IIF(l.id, true, false) as library FROM comic c left join library l on c.id = l.comic_id WHERE (ifnull(?, '') = '' OR library = true) AND ((ifnull(?, '') = '' OR UPPER(c.artist) LIKE ?) OR (ifnull(?, '') = '' OR UPPER(c.title) LIKE ?) OR (ifnull(?, '') = '' OR UPPER(c.book) LIKE ?)) ORDER BY "+sort+" LIMIT ?, ?", library, keywords, "%"+keywords+"%", keywords, "%"+keywords+"%", keywords, "%"+keywords+"%", offset, limit)
 	var comics []Comic
 	if err != nil {
 		log.Println(err)
