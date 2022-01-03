@@ -83,26 +83,31 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := struct {
-		Previous     int
-		Next         int
-		Page         int
-		Library      string
-		Keywords     string
-		SortBy       string
-		SortType     string
-		NumberOfPage int
-		Data         []Comic
+		Previous        int
+		Next            int
+		Page            int
+		Library         string
+		Keywords        string
+		SortBy          string
+		SortType        string
+		NumberOfPage    int
+		Data            []Comic
+		LastVisitedPage string
 	}{
-		Previous: page - 1,
-		Next:     page + 1,
-		Page:     page,
-		Library:  libraryParam,
-		Keywords: keywordsParam,
-		SortBy:   sortBy,
-		SortType: sortType,
-		Data:     searchInDb(page, limit, libraryParam, keywordsParam, sortBy+" "+sortType),
+		Previous:        page - 1,
+		Next:            page + 1,
+		Page:            page,
+		Library:         libraryParam,
+		Keywords:        keywordsParam,
+		SortBy:          sortBy,
+		SortType:        sortType,
+		Data:            searchInDb(page, limit, libraryParam, keywordsParam, sortBy+" "+sortType),
+		LastVisitedPage: getAttrsValue("last_visited_page"),
 	}
+
 	templates.ExecuteTemplate(w, "index.html", data)
+
+	incrementLastVisitedPage(page)
 }
 func libraryHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
@@ -160,6 +165,33 @@ func getLocalPath(id string) ComicLocalPath {
 		row.Scan(&comic.ID, &comic.LocalPath)
 	}
 	return comic
+}
+
+func incrementLastVisitedPage(page int) {
+	val := getAttrsValue("last_visited_page")
+	lastVisitedPage, err := strconv.Atoi(val)
+	if err != nil {
+		log.Println(err)
+	}
+	if lastVisitedPage+1 == page {
+		_, err := sqliteDatabase.Exec("UPDATE attrs SET value = ? WHERE key = 'last_visited_page'", page)
+		if err != nil {
+			log.Println(err)
+		}
+	}
+}
+
+func getAttrsValue(key string) string {
+	row, err := sqliteDatabase.Query("SELECT value FROM attrs WHERE key=? LIMIT 1", key)
+	var value string
+	if err != nil {
+		log.Println(err)
+	}
+	defer row.Close()
+	for row.Next() {
+		row.Scan(&value)
+	}
+	return value
 }
 
 func readerHandler(w http.ResponseWriter, r *http.Request) {
@@ -372,6 +404,27 @@ func initDb() {
 	}
 	createStatement.Exec()
 	log.Println("library table created")
+
+	createLastVisitedPageTableSQL := `CREATE TABLE attrs (
+		"key" TEXT PRIMARY KEY,
+		"value" TEXT NOT NULL 
+	  );`
+	createStatement, err = sqliteDatabase.Prepare(createLastVisitedPageTableSQL)
+	if err != nil {
+		log.Println(err.Error())
+	}
+	createStatement.Exec()
+	log.Println("attrs table created")
+
+	statement, err := sqliteDatabase.Prepare(`INSERT INTO attrs(key, value) VALUES ('last_visited_page', '0')`)
+	if err != nil {
+		log.Println(err.Error())
+	}
+	_, err = statement.Exec()
+	if err != nil {
+		log.Println(err.Error())
+	}
+	log.Println("attrs data initialized")
 }
 
 func insertComic(comic Comic, localPath string, cover []byte) {
