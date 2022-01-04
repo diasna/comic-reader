@@ -82,6 +82,8 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 		sortType = sortTypeParam
 	}
 
+	historyModeParam := r.FormValue("history-mode")
+
 	data := struct {
 		Previous        int
 		Next            int
@@ -93,6 +95,7 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 		NumberOfPage    int
 		Data            []Comic
 		LastVisitedPage string
+		HistoryMode     string
 	}{
 		Previous:        page - 1,
 		Next:            page + 1,
@@ -103,11 +106,14 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 		SortType:        sortType,
 		Data:            searchInDb(page, limit, libraryParam, keywordsParam, sortBy+" "+sortType),
 		LastVisitedPage: getAttrsValue("last_visited_page"),
+		HistoryMode:     historyModeParam,
 	}
 
 	templates.ExecuteTemplate(w, "index.html", data)
 
-	incrementLastVisitedPage(page)
+	if len(historyModeParam) > 0 {
+		incrementLastVisitedPage(page)
+	}
 }
 func libraryHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)

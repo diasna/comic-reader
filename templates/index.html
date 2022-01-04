@@ -37,7 +37,7 @@
                             <a class="nav-link {{if .Library}}active{{end}}" href="/?library=1">Library</a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="/?page={{.LastVisitedPage}}&sort-by=timestamp&sort-type=asc">Last Visited Page</a>
+                            <a class="nav-link" href="/?page={{.LastVisitedPage}}&sort-by=timestamp&sort-type=asc&history-mode=true">History mode</a>
                         </li>
                     </ul>
                     <form method="get">
@@ -96,11 +96,11 @@
                 <nav class="mt-5 d-flex justify-content-center">
                     <ul class="pagination pagination-lg">
                         <li class="page-item"><a class="page-link"
-                                href="/?page={{.Previous}}{{if .Library}}&library=1{{end}}{{if .Keywords}}&keywords={{.Keywords}}{{end}}{{if .SortBy}}&sort-by={{.SortBy}}{{end}}{{if .SortType}}&sort-type={{.SortType}}{{end}}">Prev</a>
+                                href="/?page={{.Previous}}{{if .Library}}&library=1{{end}}{{if .Keywords}}&keywords={{.Keywords}}{{end}}{{if .SortBy}}&sort-by={{.SortBy}}{{end}}{{if .SortType}}&sort-type={{.SortType}}{{end}}{{if .HistoryMode}}&history-mode={{.HistoryMode}}{{end}}">Prev</a>
                         </li>
                         <li class="page-item disabled"><a class="page-link" href="#">{{.Page}}</a></li>
                         <li class="page-item"><a class="page-link"
-                                href="/?page={{.Next}}{{if .Library}}&library=1{{end}}{{if .Keywords}}&keywords={{.Keywords}}{{end}}{{if .SortBy}}&sort-by={{.SortBy}}{{end}}{{if .SortType}}&sort-type={{.SortType}}{{end}}">Next</a>
+                                href="/?page={{.Next}}{{if .Library}}&library=1{{end}}{{if .Keywords}}&keywords={{.Keywords}}{{end}}{{if .SortBy}}&sort-by={{.SortBy}}{{end}}{{if .SortType}}&sort-type={{.SortType}}{{end}}{{if .HistoryMode}}&history-mode={{.HistoryMode}}{{end}}">Next</a>
                         </li>
                     </ul>
                 </nav>
