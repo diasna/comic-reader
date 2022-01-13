@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"database/sql"
 	"errors"
+	"fmt"
 	"html/template"
 	"image"
 	"image/png"
@@ -291,6 +292,54 @@ func getCoverFromDb(id string) []byte {
 	return data
 }
 
+func compressImage(path string) {
+	filepath.Walk(path, func(path string, f os.FileInfo, _ error) error {
+		if !f.IsDir() {
+			r, err := regexp.MatchString(".zip", f.Name())
+			if err == nil && r {
+				log.Printf("Processing %s", f.Name())
+				r, err := zip.OpenReader(path)
+				if err != nil {
+					return nil
+				}
+				defer r.Close()
+				archive, err := os.Create(fmt.Sprintf("Copy of -%s", f.Name()))
+				if err != nil {
+					panic(err)
+				}
+				defer archive.Close()
+				zipWriter := zip.NewWriter(archive)
+
+				for _, f := range r.File {
+					fc, err := f.Open()
+					if err != nil {
+						return nil
+					}
+					defer fc.Close()
+					content, err := ioutil.ReadAll(fc)
+					if err != nil {
+						return nil
+					}
+					img, _ := png.Decode(bytes.NewReader(content))
+					var buf bytes.Buffer
+					if err = webp.Encode(&buf, img, &webp.Options{Lossless: true}); err != nil {
+						log.Println(err)
+					}
+
+					w1, err := zipWriter.Create(f.Name)
+					if err != nil {
+						panic(err)
+					}
+					if _, err := io.Copy(w1, bytes.NewReader(buf.Bytes())); err != nil {
+						panic(err)
+					}
+				}
+			}
+		}
+		return nil
+	})
+}
+
 func reloadComicDb(path string) {
 	openDb()
 	reTitle := regexp.MustCompile(`(?s)\] (.*) \(`)
@@ -467,8 +516,8 @@ func startWebServer() {
 	r.HandleFunc("/library/{id}", libraryHandler).Methods("POST")
 	r.HandleFunc("/library/{id}", libraryHandler).Methods("DELETE")
 
-	log.Println("Listing for requests at http://localhost:4646/")
-	log.Fatal(http.ListenAndServe(":4646", r))
+	log.Println("Listing for requests at http://localhost:4647/")
+	log.Fatal(http.ListenAndServe(":4647", r))
 }
 func main() {
 	if len(os.Args) < 2 {
@@ -480,6 +529,10 @@ func main() {
 			path := os.Args[2]
 			log.Printf("Importing %s", path)
 			reloadComicDb(path)
+		} else if os.Args[1] == "compress" {
+			path := os.Args[2]
+			log.Printf("Compressing %s", path)
+			compressImage(path)
 		}
 	}
 }
